@@ -340,6 +340,10 @@ func _ready() -> void:
 	# Ensure we're in the player group (failsafe)
 	add_to_group("player")
 
+	# Register with EntityRegistry for efficient queries
+	if EntityRegistry:
+		EntityRegistry.register_player(self)
+
 	# Cache camera nodes once
 	camera_pivot = get_node_or_null("CameraPivot")
 	if camera_pivot:
@@ -487,17 +491,10 @@ func _apply_cooldown_reduction(base_cooldown: float) -> float:
 	return base_cooldown
 
 func _shoot_slime() -> bool:
-	# Find nearest enemy from group
+	# Use EntityRegistry for O(1) spatial query instead of O(n) group iteration
 	var closest_enemy: Node3D = null
-	var enemies := get_tree().get_nodes_in_group("enemies")
-	var closest_dist_sq := INF
-
-	for enemy in enemies:
-		if enemy is Node3D:
-			var dist_sq := global_position.distance_squared_to(enemy.global_position)
-			if dist_sq < closest_dist_sq:
-				closest_dist_sq = dist_sq
-				closest_enemy = enemy
+	if EntityRegistry and not EntityRegistry.is_empty():
+		closest_enemy = EntityRegistry.get_nearest_enemy(global_position, [], INF) as Node3D
 
 	if not closest_enemy:
 		return false  # No enemies to shoot at
@@ -831,14 +828,14 @@ func _update_aura_damage(delta: float) -> void:
 		_deal_aura_damage()
 
 func _deal_aura_damage() -> void:
-	# Find enemies in range using group lookup
-	var enemies := get_tree().get_nodes_in_group("enemies")
-	for enemy in enemies:
-		if enemy is Node3D:
-			var dist_sq := global_position.distance_squared_to(enemy.global_position)
-			if dist_sq <= 9.0:  # 3.0 units range squared
-				if enemy.has_method("take_damage"):
-					enemy.take_damage(stats.aura_damage, false, "normal")
+	# Use EntityRegistry for spatial query instead of O(n) group iteration
+	if not EntityRegistry or EntityRegistry.is_empty():
+		return
+
+	var nearby_enemies := EntityRegistry.get_enemies_in_range(global_position, 3.0)
+	for enemy in nearby_enemies:
+		if enemy.has_method("take_damage"):
+			enemy.take_damage(stats.aura_damage, false, "normal")
 
 # ============ END ABILITY FUNCTIONS ============
 
@@ -1190,3 +1187,9 @@ func _update_camera_shake(delta: float) -> void:
 		if camera_shake_timer <= 0:
 			if camera_pivot:
 				camera_pivot.position = _original_camera_offset
+
+## Show notification via HUD
+func _show_notification(text: String, color: Color) -> void:
+	var hud := get_tree().get_first_node_in_group("hud")
+	if hud and hud.has_method("show_notification"):
+		hud.show_notification(text, color)

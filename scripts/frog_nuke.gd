@@ -23,7 +23,7 @@ static func cast(owner_node: Node3D) -> FrogNuke:
 	var nuke := FrogNuke.new()
 	nuke._owner = owner_node
 	nuke.global_position = owner_node.global_position
-	get_tree().current_scene.add_child(nuke)
+	owner_node.get_tree().current_scene.add_child(nuke)
 	nuke.start_cast()
 	return nuke
 
@@ -194,7 +194,13 @@ func _create_nuke_effect() -> void:
 		_owner._apply_camera_shake(0.8, 0.5)
 
 func _devour_all_enemies() -> void:
-	var enemies := get_tree().get_nodes_in_group("enemies")
+	# Use EntityRegistry for direct array access instead of tree search
+	var enemies := []
+	if EntityRegistry:
+		enemies = EntityRegistry.get_all_enemies()
+	else:
+		enemies = get_tree().get_nodes_in_group("enemies")
+
 	var xp_orbs_created := 0
 
 	for enemy in enemies:

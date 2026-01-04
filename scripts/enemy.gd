@@ -4,18 +4,18 @@ class_name Enemy
 # Preload to avoid class loading issues
 const XPOrb = preload("res://scripts/xp_orb.gd")
 
-# Base stats (increased for harder difficulty)
-const SPEED: float = 5.0  # Increased from 4.0
-const ACCELERATION: float = 15.0  # Increased from 10.0 (faster acceleration)
-const ATTACK_RANGE: float = 2.0
-const ATTACK_RANGE_SQ: float = 4.0  # 2.0 * 2.0 - avoid sqrt!
-const DAMAGE: float = 12.0  # Reduced for easier early game
-const ATTACK_COOLDOWN: float = 1.0  # Slightly slower attacks
-const MAX_HEALTH: float = 35.0  # Reduced for easier early game
-const XP_DROP_MIN: int = 1
-const XP_DROP_MAX: int = 3
-const XP_VALUE_MIN: int = 5
-const XP_VALUE_MAX: int = 15
+# Use centralized config
+const SPEED: float = GameConfig.ENEMY.speed
+const ACCELERATION: float = GameConfig.ENEMY.acceleration
+const ATTACK_RANGE: float = GameConfig.ENEMY.attack_range
+const ATTACK_RANGE_SQ: float = GameConfig.ENEMY.attack_range_squared
+const DAMAGE: float = GameConfig.ENEMY.damage
+const ATTACK_COOLDOWN: float = GameConfig.ENEMY.attack_cooldown
+const MAX_HEALTH: float = GameConfig.ENEMY.max_health
+const XP_DROP_MIN: int = GameConfig.ENEMY.xp_drop_min
+const XP_DROP_MAX: int = GameConfig.ENEMY.xp_drop_max
+const XP_VALUE_MIN: int = GameConfig.ENEMY.xp_value_min
+const XP_VALUE_MAX: int = GameConfig.ENEMY.xp_value_max
 
 @onready var model: Node3D = $EnemyModel
 @onready var health_bar: Control = $HealthBar
@@ -41,7 +41,7 @@ var _scaled_speed: float = SPEED
 # Poison system
 var _poison_timer: float = 0.0
 var _poison_damage: float = 0.0
-var _poison_interval: float = 0.5
+var _poison_interval: float = GameConfig.ENEMY.poison_interval
 var _poison_interval_timer: float = 0.0
 
 # Stun system
@@ -49,7 +49,7 @@ var _stun_timer: float = 0.0
 
 # Knockback
 var _knockback_velocity: Vector3 = Vector3.ZERO
-var _knockback_timer := 0.0  # Track knockback duration
+var _knockback_timer := 0.0
 
 # Poison visual
 var _poison_particles: GPUParticles3D = null
@@ -58,6 +58,11 @@ signal died(enemy: Enemy)
 
 func _ready() -> void:
 	add_to_group("enemies")
+
+	# Register with EntityRegistry for efficient spatial queries
+	if EntityRegistry:
+		EntityRegistry.register_enemy(self)
+
 	_apply_difficulty_scaling()
 
 	# Set up animations
@@ -203,13 +208,7 @@ func freeze(duration: float) -> void:
 		# Find any MeshInstance3D in the model hierarchy
 		var mesh_instance = _find_mesh_instance(model)
 		if mesh_instance:
-			var freeze_mat = StandardMaterial3D.new()
-			freeze_mat.albedo_color = Color(0.6, 0.9, 1.0)
-			freeze_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-			freeze_mat.albedo_color.a = 0.6
-			freeze_mat.emission_enabled = true
-			freeze_mat.emission = Color(0.3, 0.8, 1.0) * 0.5
-			mesh_instance.material_overlay = freeze_mat
+			mesh_instance.material_overlay = VisualEffects.create_freeze_material()
 			# Remove overlay after freeze duration
 			get_tree().create_timer(duration).timeout.connect(func():
 				if is_instance_valid(self) and is_instance_valid(mesh_instance):
@@ -228,7 +227,7 @@ func _find_mesh_instance(node: Node) -> MeshInstance3D:
 func apply_knockback(force: Vector3) -> void:
 	# Zero out Y component so enemies don't fly upward
 	_knockback_velocity = Vector3(force.x, 0.0, force.z)
-	_knockback_timer = 0.2  # Knockback lasts 0.2 seconds
+	_knockback_timer = GameConfig.ENEMY.knockback_duration
 
 func _die() -> void:
 	if _is_dying:
@@ -236,6 +235,11 @@ func _die() -> void:
 
 	_is_dying = true
 	_is_dead = true
+
+	# Unregister from EntityRegistry before removing from group
+	if EntityRegistry:
+		EntityRegistry.unregister_enemy(self)
+
 	remove_from_group("enemies")
 
 	# Disable collision and hide model
@@ -262,36 +266,12 @@ func _die() -> void:
 	queue_free()
 
 func _play_disintegration_effect() -> void:
-	# Create particle explosion effect
-	var particles := GPUParticles3D.new()
-	particles.amount = 50
-	particles.lifetime = 0.8
-	particles.one_shot = true
-	particles.emitting = true
-
-	# Set up particle material
-	var mat := ParticleProcessMaterial.new()
-	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	mat.emission_box_extents = Vector3(0.5, 1.0, 0.5)
-	mat.direction = Vector3(0, 1, 0)
-	mat.spread = 45.0
-	mat.initial_velocity_min = 2.0
-	mat.initial_velocity_max = 5.0
-	mat.gravity = Vector3(0, -5.0, 0)
-	mat.scale_min = 0.1
-	mat.scale_max = 0.3
-	mat.color = Color(0.6, 0.3, 0.2, 1.0)  # Brownish-red enemy color
-	particles.process_material = mat
-
-	# Use box particles for chunky disintegration look
-	var mesh := BoxMesh.new()
-	mesh.size = Vector3(0.15, 0.15, 0.15)
-	particles.draw_pass_1 = mesh
-
+	# Create primary disintegration burst
+	var particles := VisualEffects.create_effect(VisualEffects.EffectType.DISINTEGRATION)
 	get_tree().current_scene.add_child(particles)
 	particles.global_position = global_position + Vector3(0, 1.0, 0)
 
-	# Create second burst - smaller pieces
+	# Create second burst - smaller pieces (more detailed effect)
 	var particles2 := GPUParticles3D.new()
 	particles2.amount = 30
 	particles2.lifetime = 0.6
@@ -308,7 +288,7 @@ func _play_disintegration_effect() -> void:
 	mat2.gravity = Vector3(0, -8.0, 0)
 	mat2.scale_min = 0.05
 	mat2.scale_max = 0.15
-	mat2.color = Color(0.8, 0.4, 0.3, 1.0)
+	mat2.color = GameConfig.COLORS.enemy_light
 	particles2.process_material = mat2
 
 	var mesh2 := BoxMesh.new()

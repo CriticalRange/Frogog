@@ -484,33 +484,36 @@ func _play_entrance_animation() -> void:
 	
 	# Get overlay (first child)
 	var overlay = get_child(0) if get_child_count() > 0 else null
-	
+
 	# Animate overlay fade in
 	if overlay and overlay is ColorRect:
 		overlay.modulate.a = 0.0
 		var tween := create_tween()
-		tween.tween_property(overlay, "modulate:a", 1.0, 0.3).set_ease(Tween.EASE_OUT)
-	
+		if tween:
+			tween.tween_property(overlay, "modulate:a", 1.0, 0.3).set_ease(Tween.EASE_OUT)
+
 	# Animate panel scale with bounce
 	_panel.pivot_offset = _panel.size / 2
 	_panel.scale = Vector2(0.5, 0.5)
 	_panel.modulate.a = 0.0
-	
+
 	var panel_tween := create_tween()
-	panel_tween.set_parallel(true)
-	panel_tween.tween_property(_panel, "scale", Vector2(1.0, 1.0), 0.4).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	panel_tween.tween_property(_panel, "modulate:a", 1.0, 0.3).set_ease(Tween.EASE_OUT)
-	
+	if panel_tween:
+		panel_tween.set_parallel(true)
+		panel_tween.tween_property(_panel, "scale", Vector2(1.0, 1.0), 0.4).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+		panel_tween.tween_property(_panel, "modulate:a", 1.0, 0.3).set_ease(Tween.EASE_OUT)
+
 	# Animate cards slide in with stagger
 	for i in range(_cards.size()):
 		var card: Control = _cards[i]
 		card.modulate.a = 0.0
 		card.position.y += 50
-		
+
 		var card_tween := create_tween()
-		card_tween.set_parallel(true)
-		card_tween.tween_property(card, "position:y", card.position.y - 50, 0.4).set_delay(0.2 + i * 0.1).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-		card_tween.tween_property(card, "modulate:a", 1.0, 0.3).set_delay(0.2 + i * 0.1).set_ease(Tween.EASE_OUT)
+		if card_tween:
+			card_tween.set_parallel(true)
+			card_tween.tween_property(card, "position:y", card.position.y - 50, 0.4).set_delay(0.2 + i * 0.1).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+			card_tween.tween_property(card, "modulate:a", 1.0, 0.3).set_delay(0.2 + i * 0.1).set_ease(Tween.EASE_OUT)
 
 func _play_exit_animation() -> void:
 	if not _panel:
@@ -522,19 +525,23 @@ func _play_exit_animation() -> void:
 
 	# Animate panel scale out
 	var tween := create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(_panel, "scale", Vector2(0.8, 0.8), 0.2).set_ease(Tween.EASE_IN)
-	tween.tween_property(_panel, "modulate:a", 0.0, 0.2).set_ease(Tween.EASE_IN)
+	if tween:
+		tween.set_parallel(true)
+		tween.tween_property(_panel, "scale", Vector2(0.8, 0.8), 0.2).set_ease(Tween.EASE_IN)
+		tween.tween_property(_panel, "modulate:a", 0.0, 0.2).set_ease(Tween.EASE_IN)
 
 	# Get overlay
 	var overlay = get_child(0) if get_child_count() > 0 else null
-	if overlay and overlay is ColorRect:
+	if overlay and overlay is ColorRect and tween:
 		tween.tween_property(overlay, "modulate:a", 0.0, 0.2).set_ease(Tween.EASE_IN)
 
 	# Fade out background effects
 	_fade_out_background_effects(0.2)
 
-	tween.chain().tween_callback(_finish_hide)
+	if tween:
+		tween.chain().tween_callback(_finish_hide)
+	else:
+		_finish_hide()
 
 func _build_ui(choices: Array) -> void:
 	# Clear existing UI
@@ -898,19 +905,21 @@ func _create_floating_shapes() -> void:
 
 		# Float and rotate animation
 		var tween := create_tween()
-		tween.set_parallel(true)
-		tween.set_loops()
-		tween.tween_property(shape, "position:y", shape.position.y - 50, 4.0 + randf() * 3.0).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(shape, "position:y", shape.position.y + 50, 4.0 + randf() * 3.0).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(shape, "rotation", shape.rotation + PI, 3.0 + randf() * 2.0).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(shape, "rotation", shape.rotation - PI, 3.0 + randf() * 2.0).set_ease(Tween.EASE_IN_OUT)
+		if tween:
+			tween.set_parallel(true)
+			tween.set_loops()
+			tween.tween_property(shape, "position:y", shape.position.y - 50, 4.0 + randf() * 3.0).set_ease(Tween.EASE_IN_OUT)
+			tween.tween_property(shape, "position:y", shape.position.y + 50, 4.0 + randf() * 3.0).set_ease(Tween.EASE_IN_OUT)
+			tween.tween_property(shape, "rotation", shape.rotation + PI, 3.0 + randf() * 2.0).set_ease(Tween.EASE_IN_OUT)
+			tween.tween_property(shape, "rotation", shape.rotation - PI, 3.0 + randf() * 2.0).set_ease(Tween.EASE_IN_OUT)
 
 		# Pulse opacity
 		var opacity_tween := create_tween()
-		opacity_tween.set_parallel(true)
-		opacity_tween.set_loops()
-		opacity_tween.tween_property(shape, "modulate:a", 0.3, 1.0 + randf()).set_ease(Tween.EASE_IN_OUT)
-		opacity_tween.tween_property(shape, "modulate:a", 1.0, 1.0 + randf()).set_ease(Tween.EASE_IN_OUT)
+		if opacity_tween:
+			opacity_tween.set_parallel(true)
+			opacity_tween.set_loops()
+			opacity_tween.tween_property(shape, "modulate:a", 0.3, 1.0 + randf()).set_ease(Tween.EASE_IN_OUT)
+			opacity_tween.tween_property(shape, "modulate:a", 1.0, 1.0 + randf()).set_ease(Tween.EASE_IN_OUT)
 
 		_background_container.add_child(shape)
 		_energy_waves.append(shape)
@@ -1010,13 +1019,14 @@ func _create_energy_waves() -> void:
 
 		# Create expanding animation
 		var tween := create_tween()
-		tween.set_parallel(true)
-		tween.set_loops()
-		tween.tween_property(wave, "scale", Vector2(100, 100), 3.0 + i * 0.3).set_ease(Tween.EASE_OUT)
-		tween.tween_property(wave, "scale", Vector2(20, 20), 3.0 + i * 0.3).set_ease(Tween.EASE_IN)
-		tween.tween_property(wave, "modulate:a", 0.0, 3.0 + i * 0.3).set_ease(Tween.EASE_OUT)
-		tween.tween_property(wave, "modulate:a", 0.4, 3.0 + i * 0.3).set_ease(Tween.EASE_IN)
-		tween.tween_property(wave, "rotation", PI * 2, 5.0 + i).set_ease(Tween.EASE_IN_OUT)
+		if tween:
+			tween.set_parallel(true)
+			tween.set_loops()
+			tween.tween_property(wave, "scale", Vector2(100, 100), 3.0 + i * 0.3).set_ease(Tween.EASE_OUT)
+			tween.tween_property(wave, "scale", Vector2(20, 20), 3.0 + i * 0.3).set_ease(Tween.EASE_IN)
+			tween.tween_property(wave, "modulate:a", 0.0, 3.0 + i * 0.3).set_ease(Tween.EASE_OUT)
+			tween.tween_property(wave, "modulate:a", 0.4, 3.0 + i * 0.3).set_ease(Tween.EASE_IN)
+			tween.tween_property(wave, "rotation", PI * 2, 5.0 + i).set_ease(Tween.EASE_IN_OUT)
 
 		_background_container.add_child(wave)
 		_energy_waves.append(wave)
@@ -1083,12 +1093,13 @@ func _create_pulsing_rings() -> void:
 
 		# Pulse animation
 		var tween := create_tween()
-		tween.set_parallel(true)
-		tween.set_loops()
-		tween.tween_property(ring, "scale", Vector2(1.1, 1.1), 1.5 + i * 0.2).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(ring, "scale", Vector2(0.95, 0.95), 1.5 + i * 0.2).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(ring, "modulate:a", 0.2, 2.0).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(ring, "modulate:a", 0.6, 2.0).set_ease(Tween.EASE_IN_OUT)
+		if tween:
+			tween.set_parallel(true)
+			tween.set_loops()
+			tween.tween_property(ring, "scale", Vector2(1.1, 1.1), 1.5 + i * 0.2).set_ease(Tween.EASE_IN_OUT)
+			tween.tween_property(ring, "scale", Vector2(0.95, 0.95), 1.5 + i * 0.2).set_ease(Tween.EASE_IN_OUT)
+			tween.tween_property(ring, "modulate:a", 0.2, 2.0).set_ease(Tween.EASE_IN_OUT)
+			tween.tween_property(ring, "modulate:a", 0.6, 2.0).set_ease(Tween.EASE_IN_OUT)
 
 		_background_container.add_child(ring)
 		_energy_waves.append(ring)
@@ -1110,19 +1121,21 @@ func _create_drifting_stars() -> void:
 		var duration := 5.0 + randf() * 5.0
 
 		var tween := create_tween()
-		tween.set_parallel(true)
-		tween.set_loops()
-		tween.tween_property(star, "position:x", star.position.x + drift_x, duration).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(star, "position:x", star.position.x - drift_x, duration).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(star, "position:y", star.position.y + drift_y, duration).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(star, "position:y", star.position.y - drift_y, duration).set_ease(Tween.EASE_IN_OUT)
+		if tween:
+			tween.set_parallel(true)
+			tween.set_loops()
+			tween.tween_property(star, "position:x", star.position.x + drift_x, duration).set_ease(Tween.EASE_IN_OUT)
+			tween.tween_property(star, "position:x", star.position.x - drift_x, duration).set_ease(Tween.EASE_IN_OUT)
+			tween.tween_property(star, "position:y", star.position.y + drift_y, duration).set_ease(Tween.EASE_IN_OUT)
+			tween.tween_property(star, "position:y", star.position.y - drift_y, duration).set_ease(Tween.EASE_IN_OUT)
 
 		# Twinkle
 		var twinkle := create_tween()
-		twinkle.set_parallel(true)
-		twinkle.set_loops()
-		twinkle.tween_property(star, "modulate:a", 0.2, 0.5 + randf()).set_ease(Tween.EASE_IN_OUT)
-		twinkle.tween_property(star, "modulate:a", 1.0, 0.5 + randf()).set_ease(Tween.EASE_IN_OUT)
+		if twinkle:
+			twinkle.set_parallel(true)
+			twinkle.set_loops()
+			twinkle.tween_property(star, "modulate:a", 0.2, 0.5 + randf()).set_ease(Tween.EASE_IN_OUT)
+			twinkle.tween_property(star, "modulate:a", 1.0, 0.5 + randf()).set_ease(Tween.EASE_IN_OUT)
 
 		_background_container.add_child(star)
 		_energy_waves.append(star)
@@ -1152,10 +1165,11 @@ func _create_colorful_confetti() -> void:
 		var rotate_amount := (randf() - 0.5) * PI * 4
 
 		var tween := create_tween()
-		tween.set_parallel(true)
-		tween.tween_property(confetti, "position:y", end_y, duration).set_ease(Tween.EASE_IN)
-		tween.tween_property(confetti, "rotation", confetti.rotation + rotate_amount, duration)
-		tween.tween_property(confetti, "modulate:a", 0.0, duration).set_delay(duration * 0.8)
+		if tween:
+			tween.set_parallel(true)
+			tween.tween_property(confetti, "position:y", end_y, duration).set_ease(Tween.EASE_IN)
+			tween.tween_property(confetti, "rotation", confetti.rotation + rotate_amount, duration)
+			tween.tween_property(confetti, "modulate:a", 0.0, duration).set_delay(duration * 0.8)
 
 		_background_container.add_child(confetti)
 		_energy_waves.append(confetti)
@@ -1189,12 +1203,13 @@ func _create_streamers() -> void:
 		var direction := 1.0 if from_left else -1.0
 
 		var tween := create_tween()
-		tween.set_parallel(true)
-		tween.set_loops()
-		tween.tween_property(streamer, "position:x", streamer.position.x + direction * 200, duration).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(streamer, "position:x", streamer.position.x, duration).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(streamer, "rotation", sin(phase) * amplitude * 0.01, duration * 0.5).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(streamer, "rotation", -sin(phase) * amplitude * 0.01, duration * 0.5).set_ease(Tween.EASE_IN_OUT)
+		if tween:
+			tween.set_parallel(true)
+			tween.set_loops()
+			tween.tween_property(streamer, "position:x", streamer.position.x + direction * 200, duration).set_ease(Tween.EASE_IN_OUT)
+			tween.tween_property(streamer, "position:x", streamer.position.x, duration).set_ease(Tween.EASE_IN_OUT)
+			tween.tween_property(streamer, "rotation", sin(phase) * amplitude * 0.01, duration * 0.5).set_ease(Tween.EASE_IN_OUT)
+			tween.tween_property(streamer, "rotation", -sin(phase) * amplitude * 0.01, duration * 0.5).set_ease(Tween.EASE_IN_OUT)
 
 		_background_container.add_child(streamer)
 		_energy_waves.append(streamer)
@@ -1225,12 +1240,13 @@ func _create_glowing_orbs() -> void:
 
 		# Slow float animation
 		var tween := create_tween()
-		tween.set_parallel(true)
-		tween.set_loops()
-		tween.tween_property(orb, "position", orb.position + Vector2(randf() * 60 - 30, randf() * 60 - 30), 6.0 + randf() * 4.0).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(orb, "position", orb.position, 6.0 + randf() * 4.0).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(orb, "scale", Vector2(1.3, 1.3), 3.0 + randf()).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_property(orb, "scale", Vector2(0.8, 0.8), 3.0 + randf()).set_ease(Tween.EASE_IN_OUT)
+		if tween:
+			tween.set_parallel(true)
+			tween.set_loops()
+			tween.tween_property(orb, "position", orb.position + Vector2(randf() * 60 - 30, randf() * 60 - 30), 6.0 + randf() * 4.0).set_ease(Tween.EASE_IN_OUT)
+			tween.tween_property(orb, "position", orb.position, 6.0 + randf() * 4.0).set_ease(Tween.EASE_IN_OUT)
+			tween.tween_property(orb, "scale", Vector2(1.3, 1.3), 3.0 + randf()).set_ease(Tween.EASE_IN_OUT)
+			tween.tween_property(orb, "scale", Vector2(0.8, 0.8), 3.0 + randf()).set_ease(Tween.EASE_IN_OUT)
 
 		_background_container.add_child(orb)
 		_energy_waves.append(orb)
@@ -1293,8 +1309,9 @@ func _fade_out_background_effects(duration: float) -> void:
 			continue
 
 		var tween := create_tween()
-		tween.set_parallel(true)
-		tween.tween_property(effect, "modulate:a", 0.0, duration).set_ease(Tween.EASE_IN)
+		if tween:
+			tween.set_parallel(true)
+			tween.tween_property(effect, "modulate:a", 0.0, duration).set_ease(Tween.EASE_IN)
 
 # Get upgrade data
 static func get_upgrade_data(upgrade_id: String) -> Dictionary:

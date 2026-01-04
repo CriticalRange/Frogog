@@ -18,6 +18,9 @@ var _spatial_grid: Dictionary = {}  # Vector2i -> Array[Node]
 var _last_query_count: int = 0
 var _cache_hit_count: int = 0
 
+# Dirty flag system for batched grid updates
+var _dirty_enemies: Dictionary = {}  # Node -> old_position
+
 # Signals
 signal enemy_registered(enemy: Node)
 signal enemy_unregistered(enemy: Node)

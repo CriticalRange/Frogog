@@ -4,10 +4,11 @@ class_name SlimeProjectile
 # Pool reference
 var _pool: ObjectPool = null
 
-const BASE_SPEED: float = 25.0
-const BASE_DAMAGE: float = 20.0
-const LIFETIME: float = 3.0
-const GRAVITY: float = 5.0  # Slight arc for that slimy feel
+# Use centralized config
+const BASE_SPEED: float = GameConfig.SLIME_PROJECTILE.base_speed
+const BASE_DAMAGE: float = GameConfig.SLIME_PROJECTILE.base_damage
+const LIFETIME: float = GameConfig.SLIME_PROJECTILE.lifetime
+const GRAVITY: float = GameConfig.SLIME_PROJECTILE.gravity
 
 # Stat-modified properties
 var damage: float = BASE_DAMAGE
@@ -31,7 +32,12 @@ var _lifetime_timer: float = 0.0
 var _pierced_enemies: Array[Node3D] = []
 var _chained_targets: Array[Node3D] = []
 var _has_hit: bool = false
-var _is_returned: bool = false  # Track if returned to pool
+var _is_pooled: bool = false  # Track if returned to pool
+
+# Cached homing target for performance
+var _homing_target: Node3D = null
+var _target_update_timer: float = 0.0
+const TARGET_UPDATE_INTERVAL: float = GameConfig.SLIME_PROJECTILE.target_update_interval
 
 # Visual components (created in code - no scene needed!)
 var _mesh: MeshInstance3D
@@ -76,16 +82,12 @@ func _create_trail_particles() -> void:
 	mat.scale_min = 0.5 * size_multiplier
 	mat.scale_max = 1.0 * size_multiplier
 
-	var base_color := Color(0.2, 1.0, 0.3, 0.8)
-	if explosion_radius > 0.0:
-		base_color = Color(1.0, 0.5, 0.2, 0.8)
-	elif poison_duration > 0.0:
-		base_color = Color(0.5, 0.9, 0.2, 0.8)
-	elif chain_count > 0:
-		base_color = Color(0.5, 0.3, 1.0, 0.8)
-	elif homing_strength > 0.0:
-		base_color = Color(0.2, 0.5, 1.0, 0.8)
-
+	# Use centralized color helper
+	var base_color := GameConfig.get_projectile_color(
+		explosion_radius > 0.0, poison_duration > 0.0,
+		chain_count > 0, homing_strength > 0.0
+	)
+	base_color.a = 0.8
 	mat.color = base_color
 	_trail_particles.process_material = mat
 
@@ -99,14 +101,20 @@ func _create_trail_particles() -> void:
 
 func _physics_process(delta: float) -> void:
 	# Stop processing if returned to pool
-	if _is_returned:
+	if _is_pooled:
 		return
 
-	# Homing behavior
+	# Homing behavior with cached target (performance optimization)
 	if homing_strength > 0.0 and not _has_hit:
-		var target := _find_nearest_enemy()
-		if target:
-			var to_target := (target.global_position - global_position).normalized()
+		_target_update_timer += delta
+
+		# Only update target periodically, not every frame
+		if _target_update_timer >= TARGET_UPDATE_INTERVAL or not is_instance_valid(_homing_target):
+			_target_update_timer = 0.0
+			_homing_target = _find_nearest_enemy()
+
+		if _homing_target and is_instance_valid(_homing_target):
+			var to_target := (_homing_target.global_position - global_position).normalized()
 			# Steer towards target
 			var current_dir := velocity.normalized()
 			var steer := (to_target - current_dir).normalized() * homing_strength * delta * 10.0
@@ -142,7 +150,7 @@ func _find_nearest_enemy() -> Node3D:
 	return EntityRegistry.get_nearest_enemy(global_position, exclude_array, INF) as Node3D
 
 func _on_body_entered(body: Node3D) -> void:
-	if _is_returned:
+	if _is_pooled:
 		return  # Already returned to pool
 
 	if body.is_in_group("enemies"):
@@ -216,11 +224,11 @@ func _chain_damage(source_enemy: Node3D, remaining_chains: int) -> void:
 		exclude_array.append(e)
 	exclude_array.append(source_enemy)
 
-	var closest := EntityRegistry.get_nearest_enemy(source_enemy.global_position, exclude_array, 10.0) as Node3D
+	var closest := EntityRegistry.get_nearest_enemy(source_enemy.global_position, exclude_array, GameConfig.SLIME_PROJECTILE.chain_max_distance) as Node3D
 
 	if closest:
 		_chained_targets.append(closest)
-		var chain_damage := damage * 0.7  # Reduced damage on chain
+		var chain_damage := damage * GameConfig.SLIME_PROJECTILE.chain_damage_multiplier
 
 		# Create chain visual
 		_create_chain_visual(source_enemy.global_position, closest.global_position)
@@ -232,36 +240,12 @@ func _chain_damage(source_enemy: Node3D, remaining_chains: int) -> void:
 		_chain_damage(closest, remaining_chains - 1)
 
 func _create_chain_visual(from: Vector3, to: Vector3) -> void:
-	var chain := MeshInstance3D.new()
-	var beam := CylinderMesh.new()
-	beam.top_radius = 0.05
-	beam.bottom_radius = 0.05
-	beam.height = from.distance_to(to)
-	chain.mesh = beam
-
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.6, 0.3, 1.0, 0.8)
-	mat.emission_enabled = true
-	mat.emission = Color(0.5, 0.2, 1.0)
-	mat.emission_energy_multiplier = 3.0
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	chain.material_override = mat
-
-	get_tree().current_scene.add_child(chain)
-	chain.global_position = (from + to) / 2.0
-	chain.look_at(from, Vector3.UP)
-	chain.rotate_object_local(Vector3.RIGHT, PI / 2)
-
-	# Fade out and remove
-	var tween := chain.create_tween()
-	tween.parallel().tween_property(mat, "albedo_color:a", 0.0, 0.3)
-	tween.parallel().tween_property(mat, "emission_energy_multiplier", 0.0, 0.3)
-	tween.chain().tween_callback(chain.queue_free)
+	VisualEffects.create_beam(from, to, get_tree())
 
 func _explode(hit_enemy: bool = false, hit_target: Node3D = null) -> void:
-	if _is_returned:
+	if _is_pooled:
 		return  # Already returned to pool
-	_is_returned = true
+	_is_pooled = true
 	_has_hit = true
 
 	var explode_pos := global_position
@@ -269,20 +253,21 @@ func _explode(hit_enemy: bool = false, hit_target: Node3D = null) -> void:
 	# Explosion damage - use EntityRegistry for spatial query
 	if explosion_radius > 0.0 and EntityRegistry:
 		var nearby_enemies := EntityRegistry.get_enemies_in_range(explode_pos, explosion_radius)
+		var radius_sq := explosion_radius * explosion_radius
 		for enemy in nearby_enemies:
 			if enemy == hit_target or enemy in _pierced_enemies or enemy in _chained_targets:
 				continue
-			var dist := explode_pos.distance_to(enemy.global_position)
-			if dist <= explosion_radius:
+			var dist_sq := explode_pos.distance_squared_to(enemy.global_position)
+			if dist_sq <= radius_sq:
+				var dist := sqrt(dist_sq)  # Only sqrt once per hit enemy
 				var falloff := 1.0 - (dist / explosion_radius) * 0.5
-				var explosion_damage := damage * falloff * 0.5
+				var explosion_damage := damage * falloff * GameConfig.SLIME_PROJECTILE.explosion_damage_multiplier
 				if enemy.has_method("take_damage"):
 					enemy.take_damage(explosion_damage, false, "normal")
 
 	# Create explosion effect
-	var explosion := _create_explosion()
-	get_tree().current_scene.add_child(explosion)
-	explosion.global_position = explode_pos
+	var effect_type := VisualEffects.EffectType.EXPLOSION_LARGE if explosion_radius > 0.0 else VisualEffects.EffectType.EXPLOSION_SLIME
+	VisualEffects.spawn_particles(effect_type, explode_pos, get_tree())
 
 	# Return to pool or queue_free if not pooled
 	if _pool:
@@ -290,58 +275,18 @@ func _explode(hit_enemy: bool = false, hit_target: Node3D = null) -> void:
 	else:
 		queue_free()
 
-func _create_explosion() -> GPUParticles3D:
-	var particles := GPUParticles3D.new()
-
-	var amount := 30
-	var radius := 0.2
-	var explosion_color := Color(0.1, 1.0, 0.2, 1.0)
-
-	if explosion_radius > 0.0:
-		amount = 50
-		radius = explosion_radius * 0.3
-		explosion_color = Color(1.0, 0.5, 0.2, 1.0)
-
-	particles.amount = amount
-	particles.lifetime = 0.4
-	particles.one_shot = true
-	particles.explosiveness = 1.0
-	particles.emitting = true
-
-	var mat := ParticleProcessMaterial.new()
-	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	mat.emission_sphere_radius = radius
-	mat.direction = Vector3(0, 1, 0)
-	mat.spread = 180.0
-	mat.initial_velocity_min = 3.0
-	mat.initial_velocity_max = 6.0
-	mat.gravity = Vector3(0, -10, 0)
-	mat.scale_min = 0.3
-	mat.scale_max = 0.8
-	mat.color = explosion_color
-	particles.process_material = mat
-
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.08
-	mesh.height = 0.16
-	particles.draw_pass_1 = mesh
-
-	# Auto-delete after explosion using scene tree timer
-	var cleanup_timer := get_tree().create_timer(1.0)
-	cleanup_timer.timeout.connect(func(): if is_instance_valid(particles): particles.queue_free())
-
-	return particles
-
 ## Reset projectile for reuse (called by pool)
 func reset(shoot_direction: Vector3, player_stats: Dictionary = {}) -> void:
 	# Reset state
-	_is_returned = false  # Clear returned flag so projectile can be used again
+	_is_pooled = false  # Clear pooled flag so projectile can be used again
 	direction = shoot_direction.normalized()
 	velocity = direction * BASE_SPEED
 	_lifetime_timer = 0.0
 	_has_hit = false
 	_pierced_enemies.clear()
 	_chained_targets.clear()
+	_homing_target = null  # Clear cached target
+	_target_update_timer = 0.0
 	visible = true
 
 	# Reset stats
@@ -393,26 +338,18 @@ func reset(shoot_direction: Vector3, player_stats: Dictionary = {}) -> void:
 func _create_mesh() -> void:
 	_mesh = MeshInstance3D.new()
 	var sphere := SphereMesh.new()
-	sphere.radius = 0.2 * size_multiplier
-	sphere.height = 0.4 * size_multiplier
+	sphere.radius = GameConfig.SLIME_PROJECTILE.base_radius * size_multiplier
+	sphere.height = GameConfig.SLIME_PROJECTILE.base_height * size_multiplier
 	_mesh.mesh = sphere
 
-	var base_color := Color(0.2, 1.0, 0.3, 0.9)
-	if explosion_radius > 0.0:
-		base_color = Color(1.0, 0.5, 0.2, 0.9)
-	elif poison_duration > 0.0:
-		base_color = Color(0.5, 0.9, 0.2, 0.9)
-	elif chain_count > 0:
-		base_color = Color(0.5, 0.3, 1.0, 0.9)
-	elif homing_strength > 0.0:
-		base_color = Color(0.2, 0.5, 1.0, 0.9)
+	# Use centralized color helper and glowing material
+	var base_color := GameConfig.get_projectile_color(
+		explosion_radius > 0.0, poison_duration > 0.0,
+		chain_count > 0, homing_strength > 0.0
+	)
+	base_color.a = 0.9
 
-	var material := StandardMaterial3D.new()
-	material.albedo_color = base_color
-	material.emission_enabled = true
-	material.emission = base_color * 0.8
-	material.emission_energy_multiplier = 2.0
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var material := VisualEffects.create_glowing_material(base_color)
 	_mesh.material_override = material
 	add_child(_mesh)
 
@@ -420,7 +357,7 @@ func _create_mesh() -> void:
 func _create_collision() -> void:
 	_collision = CollisionShape3D.new()
 	var shape := SphereShape3D.new()
-	shape.radius = 0.25 * size_multiplier
+	shape.radius = GameConfig.SLIME_PROJECTILE.collision_radius * size_multiplier
 	_collision.shape = shape
 	add_child(_collision)
 

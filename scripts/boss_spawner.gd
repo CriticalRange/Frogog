@@ -18,7 +18,6 @@ var _has_player: bool = false
 var _boss_active: bool = false
 var _boss_instance: Node = null
 var _boss_health_bar: Control = null
-var _time_elapsed: float = 0.0
 var _boss_spawned_this_game: bool = false
 
 signal boss_spawned(boss: Node)
@@ -45,9 +44,9 @@ func _physics_process(delta: float) -> void:
 	if not _has_player or _boss_spawned_this_game:
 		return
 
-	# Time-based spawning
-	_time_elapsed += delta
-	if _time_elapsed >= spawn_after_time:
+	# Use GameManager's elapsed time for synchronization with debug skip
+	var game_time := GameManager.get_elapsed_time()
+	if game_time >= spawn_after_time:
 		spawn_boss()
 
 ## Spawn the boss at a position relative to the player

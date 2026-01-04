@@ -147,7 +147,13 @@ func _perform_interaction(player: Node3D) -> void:
 	_remove_after_delay()
 
 func _freeze_all_enemies() -> void:
-	var enemies := get_tree().get_nodes_in_group("enemies")
+	# Use EntityRegistry for O(n) iteration instead of tree search
+	var enemies := []
+	if EntityRegistry:
+		enemies = EntityRegistry.get_all_enemies()
+	else:
+		enemies = get_tree().get_nodes_in_group("enemies")
+
 	print("Time Freeze: Freezing ", enemies.size(), " enemies for ", _freeze_duration, " seconds")
 
 	for enemy in enemies:

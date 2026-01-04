@@ -1,13 +1,14 @@
 extends Area3D
 class_name XPOrb
 
-const FLOAT_HEIGHT: float = 0.5
-const BASE_MAGNET_RANGE: float = 5.0
-const BASE_COLLECT_RANGE: float = 1.0
-const SPEED: float = 15.0
-const BOB_SPEED: float = 3.0
-const BOB_AMOUNT: float = 0.2
-const SPIN_SPEED: float = 4.0
+# Use centralized config
+const FLOAT_HEIGHT: float = GameConfig.XP_ORB.float_height
+const BASE_MAGNET_RANGE: float = GameConfig.XP_ORB.base_magnet_range
+const BASE_COLLECT_RANGE: float = GameConfig.XP_ORB.base_collect_range
+const SPEED: float = GameConfig.XP_ORB.speed
+const BOB_SPEED: float = GameConfig.XP_ORB.bob_speed
+const BOB_AMOUNT: float = GameConfig.XP_ORB.bob_amount
+const SPIN_SPEED: float = GameConfig.XP_ORB.spin_speed
 
 var xp_value: int = 10
 var _player: Node3D = null
@@ -40,32 +41,30 @@ func _ready() -> void:
 	# Create the orb mesh
 	_mesh = MeshInstance3D.new()
 	var sphere := SphereMesh.new()
-	sphere.radius = 0.15
-	sphere.height = 0.3
+	sphere.radius = GameConfig.XP_ORB.mesh_radius
+	sphere.height = GameConfig.XP_ORB.mesh_height
 	_mesh.mesh = sphere
 
-	# Glowing cyan/green XP material
-	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(0.2, 0.9, 1.0, 0.9)
-	material.emission_enabled = true
-	material.emission = Color(0.1, 0.7, 0.9)
-	material.emission_energy_multiplier = 3.0
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_mesh.material_override = material
+	# Use centralized glowing material
+	_mesh.material_override = VisualEffects.create_glowing_material(
+		GameConfig.COLORS.xp_orb,
+		GameConfig.COLORS.xp_orb_emission,
+		3.0
+	)
 	add_child(_mesh)
 
 	# Create collision shape (for physics queries if needed)
 	_collision = CollisionShape3D.new()
 	var shape := SphereShape3D.new()
-	shape.radius = 0.2
+	shape.radius = GameConfig.XP_ORB.collision_radius
 	_collision.shape = shape
 	add_child(_collision)
 
 	# Add a small light for glow effect
 	_light = OmniLight3D.new()
-	_light.light_color = Color(0.2, 0.9, 1.0)
-	_light.light_energy = 0.5
-	_light.omni_range = 2.0
+	_light.light_color = GameConfig.COLORS.xp_orb
+	_light.light_energy = GameConfig.XP_ORB.light_energy
+	_light.omni_range = GameConfig.XP_ORB.light_range
 	_light.omni_attenuation = 2.0
 	add_child(_light)
 
@@ -127,37 +126,7 @@ func _collect() -> void:
 	queue_free()
 
 func _spawn_collect_effect(pos: Vector3) -> void:
-	var particles := GPUParticles3D.new()
-	particles.amount = 15
-	particles.lifetime = 0.3
-	particles.one_shot = true
-	particles.emitting = true
-
-	# Add to scene FIRST before setting global_position
-	get_tree().current_scene.add_child(particles)
-	particles.global_position = pos
-
-	var mat := ParticleProcessMaterial.new()
-	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	mat.emission_sphere_radius = 0.1
-	mat.direction = Vector3(0, 1, 0)
-	mat.spread = 60.0
-	mat.initial_velocity_min = 2.0
-	mat.initial_velocity_max = 4.0
-	mat.gravity = Vector3(0, -5, 0)
-	mat.scale_min = 0.2
-	mat.scale_max = 0.4
-	mat.color = Color(0.2, 0.9, 1.0, 1.0)
-	particles.process_material = mat
-
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.05
-	mesh.height = 0.1
-	particles.draw_pass_1 = mesh
-
-	# Auto-delete using scene tree timer
-	var cleanup_timer := get_tree().create_timer(0.5)
-	cleanup_timer.timeout.connect(func(): if is_instance_valid(particles): particles.queue_free())
+	VisualEffects.spawn_particles(VisualEffects.EffectType.PICKUP_COLLECT, pos, get_tree())
 
 # Factory function
 static func create(value: int = 10) -> XPOrb:

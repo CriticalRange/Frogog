@@ -86,7 +86,7 @@ func _try_spawn_enemy() -> void:
 
 		var spawn_pos := Vector3(
 			player.global_position.x + cos(angle) * distance,
-			enemy_height + 2.0,
+			enemy_height,
 			player.global_position.z + sin(angle) * distance
 		)
 

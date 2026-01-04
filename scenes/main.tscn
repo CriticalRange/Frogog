@@ -51,7 +51,7 @@ enemy_scene = ExtResource("4_enemy")
 [node name="BossSpawner" type="Node3D" parent="."]
 script = ExtResource("8_boss_spawner")
 boss_scene = ExtResource("9_boss")
-spawn_after_time = 180.0
+spawn_after_time = 720.0
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_env")
