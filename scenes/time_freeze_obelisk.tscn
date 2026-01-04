@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://time_freeze_obelisk"]
+
+[ext_resource type="Script" path="res://scripts/time_freeze_obelisk.gd" id="1"]
+
+[node name="TimeFreezeObelisk" type="Node3D"]
+script = ExtResource("1")

@@ -1,0 +1,33 @@
+# Godot-specific files
+.godot/
+.import/
+export_presets.cfg
+
+# Build outputs
+export/
+build/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Editor temporary files
+*.tmp
+*.temp
+
+# Mono/C# specific
+.mono/
+bin/
+obj/
+
+# Android
+.gradle/
+android/build/
+android/bin/
+
+# Web
+*.zip
+
+# Backup files
+*~
+*.bak

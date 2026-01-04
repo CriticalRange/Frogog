@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ancient_armory"]
+
+[ext_resource type="Script" path="res://scripts/ancient_armory.gd" id="1"]
+
+[node name="AncientArmory" type="Node3D"]
+script = ExtResource("1")

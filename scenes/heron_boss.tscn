@@ -1,0 +1,42 @@
+[gd_scene load_steps=5 format=3 uid="uid://heron_boss_scene"]
+
+[ext_resource type="Script" path="res://scripts/heron_boss.gd" id="1_boss"]
+[ext_resource type="PackedScene" path="res://assets/boss/Meshy_AI_Fierce_Bluebird_0104181443_texture_fbx.fbx" id="2_model"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_boss"]
+height = 12.0
+radius = 2.5
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hurtbox"]
+height = 12.0
+radius = 3.0
+
+[node name="HeronBoss" type="CharacterBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+collision_layer = 8
+collision_mask = 1
+script = ExtResource("1_boss")
+
+[node name="BossModel" parent="." instance=ExtResource("2_model")]
+transform = Transform3D(-2.5, 0, 0, 0, 2.5, 0, 0, 0, -2.5, 0, 0.835, 0)
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+root_node = NodePath("../BossModel")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7, 0)
+shape = SubResource("CapsuleShape3D_boss")
+
+[node name="Hurtbox" type="Area3D" parent="."]
+collision_layer = 16
+collision_mask = 0
+
+[node name="HurtboxShape" type="CollisionShape3D" parent="Hurtbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7, 0)
+shape = SubResource("CapsuleShape3D_hurtbox")
+
+[node name="GroundCheck" type="RayCast3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+target_position = Vector3(0, -2, 0)
+enabled = true
+collision_mask = 1
